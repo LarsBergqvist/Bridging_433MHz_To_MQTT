@@ -1,5 +1,5 @@
 //
-// Reads sensor values via a 433MHz transmitter and the RCSwitch protocol
+// Reads sensor values via a 433MHz receiver and the RCSwitch library
 // The sensor id maps to an MQTT topic and the value is published to an MQTT broker
 //
 #include <RCSwitch.h>
