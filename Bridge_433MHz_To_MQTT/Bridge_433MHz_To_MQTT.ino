@@ -46,7 +46,7 @@ void setup()
 
 
 int prevValue=-1;
-int numIdenticalInRow=0;
+int numIdenticalInRow=1;
 void loop() 
 {
   if (receiver.available()) 
@@ -68,22 +68,26 @@ void loop()
         numIdenticalInRow = 0;
       }
 
-      unsigned long checksum = value & 0x000000FF;
-      unsigned long data = (value >> 8) & 0x0000FFFF;
-      unsigned long byte3 = (value >> 24) & 0x000000FF;
-      unsigned long seq = byte3 & 0x0F;
-      unsigned long measId = (byte3 & 0xF0) >> 4;
+      // Get the different parts of the 32-bit / 4-byte value
+      // that has been read over 433MH<
+      unsigned in checksum = value & 0x000000FF;
+      unsigned ini data = (value >> 8) & 0x0000FFFF;
+      unsigned ini byte3 = (value >> 24) & 0x000000FF;
+      unsigned ini seq = byte3 & 0x0F;
+      unsigned int typeID = (byte3 & 0xF0) >> 4;
 
-      byte calculatedCheckSum = 0xFF & (measId + seq + data);
+      byte calculatedCheckSum = 0xFF & (typeID + seq + data);
       
       if ((measId <= 3) && (calculatedCheckSum == checksum) && (seq <= 15))
       {
         prevValue = value;
 
+        // Require at least two readings of the same value in a row
+        // to reduce risk of reading noise. Ignore any further duplicated
+        // values
         if (numIdenticalInRow == 2)
         {
-          unsigned int word = DecodeValue(value);
-          float pubValue = word;
+          float pubValue = data;
           if (encodingTypes[measId] == ENC_FLOAT)
           {
             pubValue = DecodeTwoBytesToFloat(word);
@@ -96,7 +100,7 @@ void loop()
 
           mqttClient.loop();
 
-          publishFloatValue(pubValue,topics[measId]);
+          publishFloatValue(pubValue,topics[typeID]);
         }
       }
     }
@@ -118,16 +122,6 @@ float DecodeTwoBytesToFloat(unsigned int word)
     fl = -fl;
 
   return fl;
-}
-
-unsigned long DecodeValue(unsigned long value)
-{
-    unsigned long checksum = value & 0xFF;
-    unsigned long data = (value >> 8) & 0xFFFF;
-    unsigned long byte3 = (value >> 24) & 0xFF;
-    unsigned long seq = byte3 & 0x0F;
-    unsigned long measId = (byte3 & 0xF0) >> 4;    
-    return data;
 }
 
 void connectToWiFiAndBroker() 
