@@ -166,7 +166,7 @@ float DecodeTwoBytesToFloat(unsigned int word)
   if ((word & 0x8000) == 0x8000) 
     sign=true;  
 
-  float fl = (word & 0x7FFF) / 100;
+  float fl = (word & 0x7FFF) / 100.0;
         
   if (sign)
     fl = -fl;
