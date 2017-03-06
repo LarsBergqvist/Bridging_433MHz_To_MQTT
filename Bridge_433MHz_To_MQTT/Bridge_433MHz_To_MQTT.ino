@@ -22,16 +22,47 @@ RCSwitch receiver = RCSwitch();
 //
 // The sensor id:s, their encoding and corresponding MQTT topics
 //
+#define NUMTYPES 10
+
 #define TOPFLOOR_TEMP_ID         1
 #define BMP_PRESSURE_ID          2
 #define FRONT_DOOR_OPENED_ID     3
+#define GARDEN_TEMP_ID           4
+#define GARDEN_SOIL_TEMP_ID      5
+#define BATHROOM_TEMP_ID         6
+#define BATHROOM_HUMIDITY_ID     7
+#define LAUNDRY_TEMP_ID          8
+#define LAUNDRY_HUMIDITY_ID      9
 
 #define ENC_NOTDEFINED  0
 #define ENC_WORD        1
 #define ENC_FLOAT       2
 
-const byte encodingTypes[] =  { ENC_NOTDEFINED, ENC_FLOAT,                  ENC_WORD,                 ENC_WORD };
-const char* topics[] =        { "Dummy",        "Home/TopFloor/Temperature","Home/TopFloor/Pressure", "Home/FrontDoor/Status"};
+const byte encodingTypes[] =  { 
+  ENC_NOTDEFINED, 
+  ENC_FLOAT,                  
+  ENC_WORD,                 
+  ENC_WORD,
+  ENC_FLOAT,
+  ENC_FLOAT,
+  ENC_FLOAT,
+  ENC_FLOAT,
+  ENC_FLOAT,
+  ENC_FLOAT
+};
+
+const char* topics[] = { 
+"Dummy",        
+"Home/TopFloor/Temperature",
+"Home/TopFloor/Pressure", 
+"Home/FrontDoor/Status",
+"Home/Garden/Temperature",
+"Home/Garden/Soil/Temperature",
+"Home/Bathroom/Temperature",
+"Home/Bathroom/Humidity",
+"Home/Laundry/Temperature",
+"Home/Laundry/Humidity"
+};
 
 
 void setup() 
@@ -44,7 +75,8 @@ void setup()
   receiver.enableReceive(12);
 }
 
-
+  
+int frontdoorcount=0;
 int prevValue=-1;
 int numIdenticalInRow=1;
 void loop() 
@@ -59,53 +91,71 @@ void loop()
     } 
     else 
     {
-      if (value == prevValue)
-      {
-        numIdenticalInRow++;
-      }
-      else
-      {
-        numIdenticalInRow = 0;
-      }
+      DecodeAndPublish(value);
+      receiver.resetAvailable();
+    }
+  }
+}
 
-      // Get the different parts of the 32-bit / 4-byte value
-      // that has been read over 433MH<
-      unsigned int checksum = value & 0x000000FF;
-      unsigned int data = (value >> 8) & 0x0000FFFF;
-      unsigned int byte3 = (value >> 24) & 0x000000FF;
-      unsigned int seq = byte3 & 0x0F;
-      unsigned int typeID = (byte3 & 0xF0) >> 4;
+void DecodeAndPublish(int value)
+{
+  if (value == prevValue)
+  {
+    numIdenticalInRow++;
+  }
+  else
+  {
+    numIdenticalInRow = 0;
+  }
 
-      byte calculatedCheckSum = 0xFF & (typeID + seq + data);
-      
-      if ((typeID <= 3) && (calculatedCheckSum == checksum) && (seq <= 15))
+  // Get the different parts of the 32-bit / 4-byte value
+  // that has been read over 433MH<
+  unsigned int checksum = value & 0x000000FF;
+  unsigned int data = (value >> 8) & 0x0000FFFF;
+  unsigned int byte3 = (value >> 24) & 0x000000FF;
+  unsigned int seq = byte3 & 0x0F;
+  unsigned int typeID = (byte3 & 0xF0) >> 4;
+
+  byte calculatedCheckSum = 0xFF & (typeID + seq + data);
+  
+  if ((typeID <= (NUMTYPES-1)) && (calculatedCheckSum == checksum) && (seq <= 15))
+  {
+    prevValue = value;
+
+    // Require at least two readings of the same value in a row
+    // to reduce risk of reading noise. Ignore any further duplicated
+    // values
+    if (numIdenticalInRow == 2)
+    {
+      //
+      // Add increment for static value from door sensor
+      // so that Home Assistant detects event changes
+      //
+      if (typeID == FRONT_DOOR_OPENED_ID)
       {
-        prevValue = value;
-
-        // Require at least two readings of the same value in a row
-        // to reduce risk of reading noise. Ignore any further duplicated
-        // values
-        if (numIdenticalInRow == 2)
+        data = data + frontdoorcount;
+        frontdoorcount++;
+        if (frontdoorcount == 50)
         {
-          float pubValue = data;
-          if (encodingTypes[typeID] == ENC_FLOAT)
-          {
-            pubValue = DecodeTwoBytesToFloat(data);
-          }
-
-          if (!mqttClient.connected()) 
-          {
-            connectToWiFiAndBroker();
-          }
-
-          mqttClient.loop();
-
-          publishFloatValue(pubValue,topics[typeID]);
+          frontdoorcount=0;
         }
       }
+
+      float pubValue = data;
+      if (encodingTypes[typeID] == ENC_FLOAT)
+      {
+        pubValue = DecodeTwoBytesToFloat(data);
+      }
+  
+      if (!mqttClient.connected()) 
+      {
+        connectToWiFiAndBroker();
+      }
+  
+      mqttClient.loop();
+  
+      publishFloatValue(pubValue,topics[typeID]);
     }
-    
-    receiver.resetAvailable();
   }
 }
 
