@@ -31,7 +31,7 @@ RCSwitch receiver = RCSwitch();
 #define ENC_FLOAT       2
 
 const byte encodingTypes[] =  { ENC_NOTDEFINED, ENC_FLOAT,                  ENC_WORD,                 ENC_WORD };
-cont char* topics[] =        { "Dummy",        "Home/TopFloor/Temperature","Home/TopFloor/Pressure", "Home/FrontDoor/Status"};
+const char* topics[] =        { "Dummy",        "Home/TopFloor/Temperature","Home/TopFloor/Pressure", "Home/FrontDoor/Status"};
 
 
 void setup() 
