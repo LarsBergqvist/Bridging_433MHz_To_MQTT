@@ -30,8 +30,8 @@ RCSwitch receiver = RCSwitch();
 #define ENC_WORD        1
 #define ENC_FLOAT       2
 
-byte encodingTypes[] =  { ENC_NOTDEFINED, ENC_FLOAT,                  ENC_WORD,                 ENC_WORD };
-char* topics[] =        { "Dummy",        "Home/TopFloor/Temperature","Home/TopFloor/Pressure", "Home/FrontDoor/Status"};
+const byte encodingTypes[] =  { ENC_NOTDEFINED, ENC_FLOAT,                  ENC_WORD,                 ENC_WORD };
+cont char* topics[] =        { "Dummy",        "Home/TopFloor/Temperature","Home/TopFloor/Pressure", "Home/FrontDoor/Status"};
 
 
 void setup() 
@@ -70,10 +70,10 @@ void loop()
 
       // Get the different parts of the 32-bit / 4-byte value
       // that has been read over 433MH<
-      unsigned in checksum = value & 0x000000FF;
-      unsigned ini data = (value >> 8) & 0x0000FFFF;
-      unsigned ini byte3 = (value >> 24) & 0x000000FF;
-      unsigned ini seq = byte3 & 0x0F;
+      unsigned int checksum = value & 0x000000FF;
+      unsigned int data = (value >> 8) & 0x0000FFFF;
+      unsigned int byte3 = (value >> 24) & 0x000000FF;
+      unsigned int seq = byte3 & 0x0F;
       unsigned int typeID = (byte3 & 0xF0) >> 4;
 
       byte calculatedCheckSum = 0xFF & (typeID + seq + data);
