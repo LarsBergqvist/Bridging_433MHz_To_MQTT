@@ -78,7 +78,7 @@ void loop()
 
       byte calculatedCheckSum = 0xFF & (typeID + seq + data);
       
-      if ((measId <= 3) && (calculatedCheckSum == checksum) && (seq <= 15))
+      if ((typeID <= 3) && (calculatedCheckSum == checksum) && (seq <= 15))
       {
         prevValue = value;
 
@@ -88,7 +88,7 @@ void loop()
         if (numIdenticalInRow == 2)
         {
           float pubValue = data;
-          if (encodingTypes[measId] == ENC_FLOAT)
+          if (encodingTypes[typeID] == ENC_FLOAT)
           {
             pubValue = DecodeTwoBytesToFloat(word);
           }
