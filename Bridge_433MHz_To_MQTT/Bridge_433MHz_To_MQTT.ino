@@ -41,7 +41,7 @@ void setup()
   WiFi.begin(WLAN_SSID, WLAN_PASS);
    
   pinMode(12, INPUT);
-  receiver.enableReceive(12);  // Receiver on interrupt 0 => that is pin #2
+  receiver.enableReceive(12);
 }
 
 
@@ -90,7 +90,7 @@ void loop()
           float pubValue = data;
           if (encodingTypes[typeID] == ENC_FLOAT)
           {
-            pubValue = DecodeTwoBytesToFloat(word);
+            pubValue = DecodeTwoBytesToFloat(data);
           }
 
           if (!mqttClient.connected()) 
@@ -144,7 +144,7 @@ void connectToWiFiAndBroker()
 }
 
 char msg[50];
-void publishFloatValue(float value, char* topic)
+void publishFloatValue(float value, const char* topic)
 {
   if (isnan(value)) 
   {
