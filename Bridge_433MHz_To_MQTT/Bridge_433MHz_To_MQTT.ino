@@ -1,8 +1,8 @@
 //
-// Reads sensor values via a 433MHz receiver and the RCSwitch library
+// Reads sensor values via a 433MHz receiver and the Sensor433/RCSwitch library
 // The sensor id maps to an MQTT topic and the value is published to an MQTT broker
 //
-#include <RCSwitch.h>
+#include <Sensor433.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include "WIFI_and_broker_parameters.h"
@@ -17,7 +17,8 @@ PubSubClient mqttClient(BROKER_IP,BROKER_PORT,wifiClient);
 //
 // 433MHz receiver setup
 //
-RCSwitch receiver = RCSwitch();
+#define RECEIVER_INTERRUPT_PIN  12
+Sensor433::Receiver receiver = Sensor433::Receiver(RECEIVER_INTERRUPT_PIN);
 
 //
 // The sensor id:s, their encoding and corresponding MQTT topics
@@ -70,108 +71,48 @@ void setup()
   Serial.begin(9600);
 
   WiFi.begin(WLAN_SSID, WLAN_PASS);
-   
-  pinMode(12, INPUT);
-  receiver.enableReceive(12);
 }
-
   
-int frontdoorcount=0;
-int prevValue=-1;
-int numIdenticalInRow=1;
 void loop() 
 {
-  if (receiver.available()) 
+  if (receiver.hasNewData()) 
   {
-    int value = receiver.getReceivedValue();
-    
-    if (value == 0) 
-    {
-      Serial.print("Unknown encoding");
-    } 
-    else 
-    {
-      DecodeAndPublish(value);
-      receiver.resetAvailable();
-    }
+    Sensor433::ReceivedMessage message = receiver.getData();
+
+    BridgeToMQTT(message);
   }
 }
 
-void DecodeAndPublish(int value)
+int frontdoorcount=0;
+void BridgeToMQTT(Sensor433::ReceivedMessage message)
 {
-  if (value == prevValue)
-  {
-    numIdenticalInRow++;
-  }
-  else
-  {
-    numIdenticalInRow = 0;
-  }
-
-  // Get the different parts of the 32-bit / 4-byte value
-  // that has been read over 433MH<
-  unsigned int checksum = value & 0x000000FF;
-  unsigned int data = (value >> 8) & 0x0000FFFF;
-  unsigned int byte3 = (value >> 24) & 0x000000FF;
-  unsigned int seq = byte3 & 0x0F;
-  unsigned int typeID = (byte3 & 0xF0) >> 4;
-
-  byte calculatedCheckSum = 0xFF & (typeID + seq + data);
+  word data = message.dataAsWord;
+  byte sensorId = message.sensorId;
   
-  if ((typeID <= (NUMTYPES-1)) && (calculatedCheckSum == checksum) && (seq <= 15))
+  if (sensorId == FRONT_DOOR_OPENED_ID)
   {
-    prevValue = value;
-
-    // Require at least two readings of the same value in a row
-    // to reduce risk of reading noise. Ignore any further duplicated
-    // values
-    if (numIdenticalInRow == 2)
+    data = data + frontdoorcount;
+    frontdoorcount++;
+    if (frontdoorcount == 50)
     {
-      //
-      // Add increment for static value from door sensor
-      // so that Home Assistant detects event changes
-      //
-      if (typeID == FRONT_DOOR_OPENED_ID)
-      {
-        data = data + frontdoorcount;
-        frontdoorcount++;
-        if (frontdoorcount == 50)
-        {
-          frontdoorcount=0;
-        }
-      }
-
-      float pubValue = data;
-      if (encodingTypes[typeID] == ENC_FLOAT)
-      {
-        pubValue = DecodeTwoBytesToFloat(data);
-      }
-  
-      if (!mqttClient.connected()) 
-      {
-        connectToWiFiAndBroker();
-      }
-  
-      mqttClient.loop();
-  
-      publishFloatValue(pubValue,topics[typeID]);
+      frontdoorcount=0;
     }
   }
-}
 
-float DecodeTwoBytesToFloat(unsigned int word)
-{
-  bool sign = false;
-  
-  if ((word & 0x8000) == 0x8000) 
-    sign=true;  
+  float pubValue = data;
+  if (encodingTypes[sensorId] == ENC_FLOAT)
+  {
+    pubValue = message.dataAsFloat;
+  }
 
-  float fl = (word & 0x7FFF) / 100.0;
-        
-  if (sign)
-    fl = -fl;
+  if (!mqttClient.connected()) 
+  {
+    connectToWiFiAndBroker();
+  }
 
-  return fl;
+  mqttClient.loop();
+
+  publishFloatValue(pubValue,topics[sensorId]);
 }
 
 void connectToWiFiAndBroker() 
