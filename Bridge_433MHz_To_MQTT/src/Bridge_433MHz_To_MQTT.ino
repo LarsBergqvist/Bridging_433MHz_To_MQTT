@@ -74,7 +74,7 @@ const char* topics[] = {
 "Home/Laundry/Temperature",
 "Home/Laundry/Humidity",
 "Home/Garage/Temperature",
-"Home/Garage/Humidity"
+"Home/Garage/Humidity",
 "Home/Outdoor/Temperature",
 "Home/Outdoor/Humidity"
 };
