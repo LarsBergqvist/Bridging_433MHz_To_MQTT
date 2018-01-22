@@ -48,7 +48,7 @@ Sensor433::Receiver receiver = Sensor433::Receiver(RECEIVER_INTERRUPT_PIN);
 const byte encodingTypes[] =  {
   ENC_NOTDEFINED,
   ENC_FLOAT,
-  ENC_WORD,
+  ENC_FLOAT,
   ENC_WORD,
   ENC_FLOAT,
   ENC_FLOAT,
@@ -95,6 +95,8 @@ void BridgeToMQTT(Sensor433::ReceivedMessage message)
 
   if (sensorId == FRONT_DOOR_OPENED_ID)
   {
+    // Register a front door open event as
+    // a new sequence number
     data = data + frontdoorcount;
     frontdoorcount++;
     if (frontdoorcount == 50)
@@ -107,6 +109,14 @@ void BridgeToMQTT(Sensor433::ReceivedMessage message)
   if (encodingTypes[sensorId] == ENC_FLOAT)
   {
     pubValue = message.dataAsFloat;
+    if (sensorId == BMP_PRESSURE_ID)
+    {
+      // Barometric pressure is offset with -900hPa
+      // from the sensor node
+      // so that it fits the Sensor433 library
+      // Add 900hPa to get the correct barometric pressure
+      pubValue = pubValue + 900.0;
+    }
   }
 
   if (!mqttClient.connected())
